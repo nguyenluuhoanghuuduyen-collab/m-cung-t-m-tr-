@@ -10,6 +10,8 @@ interface Props {
   emotionalResource: EmotionalResource;
   onReset: () => void;
   onSubmitInitial: (message: string) => void;
+  userApiKey?: string;
+  onApiKeyChange?: (key: string) => void;
 }
 
 export default function NarrativeConsole({
@@ -20,6 +22,8 @@ export default function NarrativeConsole({
   emotionalResource,
   onReset,
   onSubmitInitial,
+  userApiKey,
+  onApiKeyChange,
 }: Props) {
   const [initialMessage, setInitialMessage] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -28,10 +32,10 @@ export default function NarrativeConsole({
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
 
   const initialEmotionChips = [
-    "Mình đang rất lo âu trước kỳ thi sắp tới, cảm thấy ngột ngạt",
-    "Bị một số bạn trong lớp chế giễu ngoại hình và xa lánh",
-    "Áp lực đồng trang lứa khiến mình tự ti và cô đơn",
-    "Một người bạn chia sẻ bức ảnh chế nhạy cảm của mình trên mạng xã hội",
+    "Áp lực thi tốt nghiệp THPT Quốc gia & định hướng chọn ngành nghề bắt buộc từ cha mẹ",
+    "Bị cô lập, tẩy chay vì không chạy theo xu hướng hoặc phong cách của nhóm bạn trong lớp",
+    "Bị bôi nhọ danh dự, chế ảnh dìm, bạo lực mạng nặc danh trên Confession của trường",
+    "Mất phương hướng bản thân, stress học tập kéo dài khiến mình mất sạch động lực",
   ];
 
   const handleChoiceSelect = async (choice: GameChoice) => {
@@ -58,6 +62,62 @@ export default function NarrativeConsole({
     e.preventDefault();
     if (!socratesAnswer.trim()) return;
     setAnsweredSocrates(true);
+  };
+
+  // Helper render for connection/API key errors
+  const renderErrorBlock = () => {
+    if (!error) return null;
+    const isApiKeyError = error.includes("API_KEY_MISSING") || error.toLowerCase().includes("api key") || error.toLowerCase().includes("apikey");
+
+    return (
+      <div className="mt-4 flex flex-col gap-3 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl animate-fade-in text-left">
+        <div className="flex items-center gap-2 text-rose-400 text-xs font-sans font-medium">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-500" />
+          <span>{error}</span>
+        </div>
+        
+        {isApiKeyError && onApiKeyChange && (
+          <div className="bg-slate-950/90 border border-slate-900 rounded-xl p-3.5 space-y-2.5 mt-1">
+            <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+              Trò chơi sử dụng mô hình trí tuệ nhân tạo <span className="text-amber-400 font-semibold">Gemini 3.5 Flash</span> từ Google để vận hành cốt truyện động. Hãy dán <strong>Gemini API Key</strong> của bạn bên dưới (Key được lưu an toàn trong trình duyệt của bạn):
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                id="console-api-key-input"
+                type="password"
+                placeholder="Nhập hoặc dán Gemini API Key..."
+                value={userApiKey || ""}
+                onChange={(e) => onApiKeyChange(e.target.value)}
+                className="flex-grow bg-slate-900 border border-slate-800 focus:border-amber-500/40 rounded-lg px-3 py-1.5 text-xs font-mono text-amber-200 placeholder-slate-600 outline-none"
+              />
+              <button
+                id="btn-retry-from-console"
+                type="button"
+                onClick={() => {
+                  // If on onboarding, re-initialize or let user submit.
+                  // By resetting error and letting them submit.
+                  window.location.reload();
+                }}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-mono font-bold text-[10px] px-4 py-1.5 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+              >
+                Kích Hoạt
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 font-sans">
+              * Bạn có thể nhận API Key hoàn toàn miễn phí chỉ trong 1 phút tại trang web chính thức:{" "}
+              <a 
+                href="https://aistudio.google.com/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-amber-500 hover:underline inline-flex items-center gap-0.5"
+              >
+                Google AI Studio <Sparkles className="w-2.5 h-2.5 text-amber-400 inline" />
+              </a>
+            </p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // If there's no state, show onboarding emotions selection
@@ -138,12 +198,7 @@ export default function NarrativeConsole({
           </div>
         </form>
 
-        {error && (
-          <div className="mt-4 flex items-center gap-2 text-rose-400 bg-rose-500/10 border border-rose-500/20 px-4 py-3 rounded-xl text-xs font-sans">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        {renderErrorBlock()}
       </div>
     );
   }
@@ -307,12 +362,7 @@ export default function NarrativeConsole({
           </div>
         </form>
 
-        {error && (
-          <div className="mt-4 flex items-center gap-2 text-rose-400 bg-rose-500/10 border border-rose-500/20 px-4 py-3 rounded-xl text-xs font-sans">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        {renderErrorBlock()}
       </div>
     </div>
   );
