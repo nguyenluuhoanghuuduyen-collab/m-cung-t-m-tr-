@@ -12,6 +12,7 @@ interface Props {
   onSubmitInitial: (message: string) => void;
   userApiKey?: string;
   onApiKeyChange?: (key: string) => void;
+  onClearError?: () => void;
 }
 
 export default function NarrativeConsole({
@@ -24,6 +25,7 @@ export default function NarrativeConsole({
   onSubmitInitial,
   userApiKey,
   onApiKeyChange,
+  onClearError,
 }: Props) {
   const [initialMessage, setInitialMessage] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -94,9 +96,11 @@ export default function NarrativeConsole({
                 id="btn-retry-from-console"
                 type="button"
                 onClick={() => {
-                  // If on onboarding, re-initialize or let user submit.
-                  // By resetting error and letting them submit.
-                  window.location.reload();
+                  if (onClearError) {
+                    onClearError();
+                  } else {
+                    window.location.reload();
+                  }
                 }}
                 className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-mono font-bold text-[10px] px-4 py-1.5 rounded-lg transition-colors cursor-pointer flex-shrink-0"
               >
