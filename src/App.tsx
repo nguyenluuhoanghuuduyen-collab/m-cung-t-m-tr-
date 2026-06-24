@@ -7,6 +7,7 @@ import StarryGalaxy from "./components/StarryGalaxy";
 import BookSoulLibrary from "./components/BookSoulLibrary";
 import RestorativeQuests from "./components/RestorativeQuests";
 import { Sparkles, Moon, Sun, Library, Compass, Users, HelpCircle, Heart, Shield, Eye, GraduationCap } from "lucide-react";
+import { callGeminiDirectly } from "./geminiClient";
 
 export default function App() {
   const [emotionalResource, setEmotionalResource] = useState<EmotionalResource>({
@@ -29,35 +30,38 @@ export default function App() {
   // Sound and UI controls
   const [activeTab, setActiveTab] = useState<"journey" | "library" | "galaxy">("journey");
 
-  // Call the backend endpoint to initiate or proceed the maze
+  // Call the backend endpoint or Gemini directly to initiate or proceed the maze
   const fetchNextState = async (message: string, currentHistory: typeof history, currentResources: EmotionalResource) => {
     setIsLoading(true);
     setError(null);
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (userApiKey) {
-        headers["x-gemini-api-key"] = userApiKey;
-      }
+      let data: GameResponse;
 
-      const response = await fetch("/api/architect/chat", {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify({
-          message,
-          history: currentHistory,
-          emotionalResource: currentResources,
-        }),
-      });
+      if (userApiKey && userApiKey.trim() !== "") {
+        // If there's a custom key in browser, call Gemini directly (serverless-friendly!)
+        data = await callGeminiDirectly(userApiKey, message, currentHistory, currentResources);
+      } else {
+        // Otherwise fallback to backend environment variables (for local development)
+        const response = await fetch("/api/architect/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            history: currentHistory,
+            emotionalResource: currentResources,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 401 || errorData.code === "API_KEY_MISSING") {
-          throw new Error("API_KEY_MISSING: Chưa cấu hình hoặc API Key không hợp lệ. Vui lòng kiểm tra lại API Key ở góc trên bên phải.");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          if (response.status === 401 || errorData.code === "API_KEY_MISSING") {
+            throw new Error("API_KEY_MISSING: Chưa cấu hình hoặc API Key không hợp lệ. Vui lòng nhập/dán API Key ở góc trên bên phải.");
+          }
+          throw new Error(errorData.error || "Không thể kết nối với Kiến trúc sư Trưởng. Vui lòng kiểm tra API key.");
         }
-        throw new Error(errorData.error || "Không thể kết nối với Kiến trúc sư Trưởng. Vui lòng kiểm tra API key.");
-      }
 
-      const data: GameResponse = await response.json();
+        data = await response.json();
+      }
 
       // Update state
       setCurrentState(data);
@@ -236,6 +240,7 @@ export default function App() {
                     setUserApiKey(key);
                     localStorage.setItem("innerscape_api_key", key);
                   }}
+                  onClearError={() => setError(null)}
                 />
               </div>
             )}
