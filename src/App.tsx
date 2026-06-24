@@ -15,6 +15,10 @@ export default function App() {
     clarity: 50,
   });
 
+  const [userApiKey, setUserApiKey] = useState<string>(() => {
+    return localStorage.getItem("innerscape_api_key") || "";
+  });
+
   const [currentState, setCurrentState] = useState<GameResponse | null>(null);
   const [history, setHistory] = useState<{ sender: "user" | "architect"; text: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,9 +34,14 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userApiKey) {
+        headers["x-gemini-api-key"] = userApiKey;
+      }
+
       const response = await fetch("/api/architect/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify({
           message,
           history: currentHistory,
@@ -41,7 +50,11 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error("Không thể kết nối với Kiến trúc sư Trưởng. Vui lòng kiểm tra API key.");
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 401 || errorData.code === "API_KEY_MISSING") {
+          throw new Error("API_KEY_MISSING: Chưa cấu hình hoặc API Key không hợp lệ. Vui lòng kiểm tra lại API Key ở góc trên bên phải.");
+        }
+        throw new Error(errorData.error || "Không thể kết nối với Kiến trúc sư Trưởng. Vui lòng kiểm tra API key.");
       }
 
       const data: GameResponse = await response.json();
@@ -113,7 +126,7 @@ export default function App() {
 
       {/* Atmospheric Global Top Navigation */}
       <header className="border-b border-slate-900 bg-slate-950/60 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-tr from-amber-500 to-purple-600 p-2 rounded-xl text-slate-950 font-bold border border-amber-400/20 shadow-lg shadow-purple-950/20">
               <GraduationCap className="w-5 h-5" />
@@ -133,44 +146,63 @@ export default function App() {
             </div>
           </div>
 
-          {/* Quick tab switch buttons */}
-          <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800">
-            <button
-              id="tab-btn-journey"
-              onClick={() => setActiveTab("journey")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeTab === "journey"
-                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Thám hiểm</span>
-            </button>
-            <button
-              id="tab-btn-library"
-              onClick={() => setActiveTab("library")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeTab === "library"
-                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Library className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Tàng thư</span>
-            </button>
-            <button
-              id="tab-btn-galaxy"
-              onClick={() => setActiveTab("galaxy")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeTab === "galaxy"
-                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Dải ngân hà</span>
-            </button>
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Input API Key settings */}
+            <div className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-800 rounded-xl px-2.5 py-1">
+              <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">Gemini API Key:</span>
+              <input
+                id="header-api-key-input"
+                type="password"
+                placeholder="Dán API Key để lưu..."
+                value={userApiKey}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setUserApiKey(val);
+                  localStorage.setItem("innerscape_api_key", val);
+                }}
+                className="bg-slate-950/60 border border-slate-850 focus:border-amber-500/40 rounded-lg px-2 py-1 text-[10px] font-mono text-amber-100 placeholder-slate-600 outline-none w-28 sm:w-44 transition-all"
+              />
+            </div>
+
+            {/* Quick tab switch buttons */}
+            <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <button
+                id="tab-btn-journey"
+                onClick={() => setActiveTab("journey")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === "journey"
+                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Thám hiểm</span>
+              </button>
+              <button
+                id="tab-btn-library"
+                onClick={() => setActiveTab("library")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === "library"
+                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Library className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Tàng thư</span>
+              </button>
+              <button
+                id="tab-btn-galaxy"
+                onClick={() => setActiveTab("galaxy")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === "galaxy"
+                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/20"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Dải ngân hà</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -199,6 +231,11 @@ export default function App() {
                   emotionalResource={emotionalResource}
                   onReset={handleReset}
                   onSubmitInitial={handleSubmitInitial}
+                  userApiKey={userApiKey}
+                  onApiKeyChange={(key) => {
+                    setUserApiKey(key);
+                    localStorage.setItem("innerscape_api_key", key);
+                  }}
                 />
               </div>
             )}
