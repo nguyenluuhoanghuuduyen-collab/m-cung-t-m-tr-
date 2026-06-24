@@ -18,6 +18,20 @@ const booksData: BookItem[] = [
     category: "Bạo lực mạng"
   },
   {
+    title: "Tôi Tự Học",
+    author: "Thu Giang Nguyễn Duy Cần",
+    quote: "Biết tự học là một sự giải phóng hoàn toàn, giúp khối óc thoát khỏi sự thụ động rập khuôn để tự tìm kiếm chân lý thực sự.",
+    therapeuticValue: "Khuyên nhủ học sinh giữ sự Sáng suốt (Clarity), học tập tự chủ và có chiều sâu nội tâm giữa các kỳ thi nặng nề.",
+    category: "Áp lực học tập"
+  },
+  {
+    title: "Tuổi Trẻ Đáng Giá Bao Nhiêu?",
+    author: "Rosie Nguyễn",
+    quote: "Những ngày tháng tuổi trẻ chính là những năm tháng định hình nên con người bạn. Đừng lãng phí nó trong sự lo âu và nuối tiếc thụ động.",
+    therapeuticValue: "Vực dậy ngọn lửa đam mê, xoa dịu stress học tập và lo âu định hướng nghề nghiệp cho thanh thiếu niên.",
+    category: "Lo âu & Stress"
+  },
+  {
     title: "Chiến Binh Cầu Vồng",
     author: "Andrea Hirata",
     quote: "Học tập không chỉ là thu thập kiến thức, mà là học cách ước mơ và không bao giờ từ bỏ ước mơ đó, dù hoàn cảnh có tồi tệ đến đâu.",
