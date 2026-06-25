@@ -15,7 +15,35 @@ app.use(express.json());
 let genAIClient: GoogleGenAI | null = null;
 
 function getGeminiClient(customApiKey?: string) {
-  import { GameResponse, EmotionalResource } from "./types";
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    throw new Error("API_KEY_MISSING: Chưa cấu hình GEMINI_API_KEY. Vui lòng thiết lập trong .env hoặc nhập trực tiếp từ giao diện.");
+  }
+  
+  // Nếu có customApiKey truyền vào, tạo instance mới để tránh đè cấu hình toàn cục
+  if (customApiKey) {
+    return new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    });
+  }
+
+  if (!genAIClient) {
+    genAIClient = new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    });
+  }
+  return genAIClient;
+}
 
 // System instructions for the Arch-Architect
 const SYSTEM_INSTRUCTION = `
@@ -42,50 +70,54 @@ LƯU Ý: Phản hồi của bạn PHẢI LUÔN tuân theo cấu trúc JSON đị
 `;
 
 const GAME_RESPONSE_SCHEMA = {
-  type: "object",
+  type: Type.OBJECT,
+  description: "Phản hồi có cấu trúc của InnerScape",
   properties: {
     islandStatus: {
-      type: "string",
+      type: Type.STRING,
       description: "Mô tả trạng thái thời tiết, cảnh quan tâm trí (ví dụ: sương mù tím khói, bầu trời bão giông rực sấm sét neon, mây xám u sầu) phản ánh cảm xúc hiện tại của Voyager."
     },
     emotionalResource: {
-      type: "object",
+      type: Type.OBJECT,
+      description: "Chỉ số tài nguyên tâm lý hiện tại của Voyager sau hành động vừa rồi",
       properties: {
-        empathy: { type: "integer", description: "Chỉ số Thấu cảm (0-100)" },
-        resilience: { type: "integer", description: "Chỉ số Kiên định (0-100)" },
-        clarity: { type: "integer", description: "Chỉ số Sáng suốt (0-100)" }
+        empathy: { type: Type.INTEGER, description: "Chỉ số Thấu cảm (0-100)" },
+        resilience: { type: Type.INTEGER, description: "Chỉ số Kiên định (0-100)" },
+        clarity: { type: Type.INTEGER, description: "Chỉ số Sáng suốt (0-100)" }
       },
       required: ["empathy", "resilience", "clarity"]
     },
     narrative: {
-      type: "string",
+      type: Type.STRING,
       description: "Phần cốt truyện tiếp nối, kịch bản bạo lực mạng, miệt thị ngoại hình, áp lực học tập hoặc sự cô lập bộc lộ. Viết bằng giọng văn Dark Academia cổ điển kết hợp Cyberpunk hiện đại lôi cuốn."
     },
     knowledgeFragment: {
-      type: "object",
+      type: Type.OBJECT,
+      description: "Mảnh vỡ tri thức từ thư viện văn học thế giới giúp soi sáng tâm trí Voyager.",
       properties: {
-        bookTitle: { type: "string", description: "Tên cuốn sách nổi tiếng phù hợp (ví dụ: Giết con chim nhạn, Thiện Ác và Smartphone...)" },
-        quote: { type: "string", description: "Câu trích dẫn đắt giá từ cuốn sách này" },
-        insight: { type: "string", description: "Phân tích tâm lý thấu cảm, liên hệ câu trích dẫn này với thử thách hiện tại bằng phương pháp Socrates." },
-        question: { type: "string", description: "Câu hỏi gợi mở tâm hồn ngắn gọn liên quan đến thông điệp sách để Voyager suy ngẫm." },
-        correctAnswerExplanation: { type: "string", description: "Lời đúc kết sâu sắc gợi ý Voyager tìm câu trả lời trong chính lồng ngực mình." }
+        bookTitle: { type: Type.STRING, description: "Tên cuốn sách nổi tiếng phù hợp (ví dụ: Giết con chim nhạn, Thiện Ác và Smartphone...)" },
+        quote: { type: Type.STRING, description: "Câu trích dẫn đắt giá từ cuốn sách này" },
+        insight: { type: Type.STRING, description: "Phân tích tâm lý thấu cảm, liên hệ câu trích dẫn này với thử thách hiện tại bằng phương pháp Socrates." },
+        question: { type: Type.STRING, description: "Câu hỏi gợi mở tâm hồn ngắn gọn liên quan đến thông điệp sách để Voyager suy ngẫm." },
+        correctAnswerExplanation: { type: Type.STRING, description: "Lời đúc kết sâu sắc gợi ý Voyager tìm câu trả lời trong chính lồng ngực mình." }
       },
       required: ["bookTitle", "quote", "insight", "question", "correctAnswerExplanation"]
     },
     choices: {
-      type: "array",
+      type: Type.ARRAY,
+      description: "Danh sách 3 lựa chọn hành động đại diện cho 3 khuynh hướng tâm lý khác nhau.",
       items: {
-        type: "object",
+        type: Type.OBJECT,
         properties: {
-          id: { type: "string", description: "Phải là 'A', 'B' hoặc 'C'" },
-          text: { type: "string", description: "Nội dung lựa chọn" },
-          consequenceText: { type: "string", description: "Hệ quả logic ẩn sâu (thuật toán hiệu ứng cánh bướm) sẽ diễn ra khi Voyager chọn phương án này." },
+          id: { type: Type.STRING, description: "Phải là 'A', 'B' hoặc 'C'" },
+          text: { type: Type.STRING, description: "Nội dung lựa chọn" },
+          consequenceText: { type: Type.STRING, description: "Hệ quả logic ẩn sâu (thuật toán hiệu ứng cánh bướm) sẽ diễn ra khi Voyager chọn phương án này." },
           resourceChanges: {
-            type: "object",
+            type: Type.OBJECT,
             properties: {
-              empathy: { type: "integer", description: "Thay đổi chỉ số thấu cảm (-15 đến +15)" },
-              resilience: { type: "integer", description: "Thay đổi chỉ số kiên định (-15 đến +15)" },
-              clarity: { type: "integer", description: "Thay đổi chỉ số sáng suốt (-15 đến +15)" }
+              empathy: { type: Type.INTEGER, description: "Thay đổi chỉ số thấu cảm (-15 đến +15)" },
+              resilience: { type: Type.INTEGER, description: "Thay đổi chỉ số kiên định (-15 đến +15)" },
+              clarity: { type: Type.INTEGER, description: "Thay đổi chỉ số sáng suốt (-15 đến +15)" }
             },
             required: ["empathy", "resilience", "clarity"]
           }
@@ -94,11 +126,12 @@ const GAME_RESPONSE_SCHEMA = {
       }
     },
     realWorldQuest: {
-      type: "object",
+      type: Type.OBJECT,
+      description: "Nhiệm vụ phục hồi thực tế (Restorative Quest) thúc đẩy Voyager hành động tích cực ngoài đời thực.",
       properties: {
-        title: { type: "string", description: "Tên nhiệm vụ thực tế đầy thi vị" },
-        description: { type: "string", description: "Hướng dẫn thực hiện phục hồi nhân cách/giải quyết mâu thuẫn/chữa lành cụ thể." },
-        reward: { type: "string", description: "Phần thưởng tinh thần ý nghĩa khi hoàn thành." }
+        title: { type: Type.STRING, description: "Tên nhiệm vụ thực tế đầy thi vị" },
+        description: { type: Type.STRING, description: "Hướng dẫn thực hiện phục hồi nhân cách/giải quyết mâu thuẫn/chữa lành cụ thể." },
+        reward: { type: Type.STRING, description: "Phần thưởng tinh thần ý nghĩa khi hoàn thành." }
       },
       required: ["title", "description", "reward"]
     }
@@ -106,89 +139,26 @@ const GAME_RESPONSE_SCHEMA = {
   required: ["islandStatus", "emotionalResource", "narrative", "knowledgeFragment", "choices", "realWorldQuest"]
 };
 
-// In client-side REST call, we use standard fetch to communicate directly with Google's servers.
-export async function callGeminiDirectly(
-  apiKey: string,
-  message: string,
-  history: { sender: "user" | "architect"; text: string }[],
-  emotionalResource: EmotionalResource
-): Promise<GameResponse> {
-  // Use gemini-2.5-flash as the fallback client-side model because it is fast, stable, and highly compatible.
-  const model = "gemini-2.5-flash"; 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+// API Endpoint for processing chat/action
+app.post("/api/architect/chat", async (req, res) => {
+  try {
+    const { message, history, emotionalResource } = req.body;
+    const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
 
-  // Formulate history
-  const formattedHistory = (history || []).map((msg) => {
-    return `${msg.sender === "user" ? "Voyager" : "InnerScape"}: ${msg.text}`;
-  }).join("\n");
+    const client = getGeminiClient(customApiKey);
 
-  const prompt = `
+    // Prepare contents
+    // Let's build a well-formed prompt combining session history, current stats, and current message
+    const formattedHistory = (history || []).map((msg: any) => {
+      return `${msg.sender === "user" ? "Voyager" : "InnerScape"}: ${msg.text}`;
+    }).join("\n");
+
+    const prompt = `
 [THÔNG TIN HỆ THỐNG]
 Chỉ số tài nguyên hiện tại của Voyager:
 - Thấu cảm: ${emotionalResource?.empathy ?? 50}/100
 - Kiên định: ${emotionalResource?.resilience ?? 50}/100
 - Sáng suốt: ${emotionalResource?.clarity ?? 50}/100
-
-[LỊCH SỬ HÀNH TRÌNH]
-${formattedHistory || "Voyager vừa mới đặt chân vào Mê cung InnerScape."}
-
-[HÀNH ĐỘNG/PHẢN HỒI MỚI NHẤT CỦA VOYAGER]
-Voyager nói/chọn: "${message}"
-
-Hãy phân tích cảm xúc và hành động trên của Voyager, cập nhật chỉ số tài nguyên, và xây dựng phần tiếp theo của mê cung tâm trí theo đúng định dạng JSON yêu cầu. 
-Hãy nhớ tích hợp sách văn học nổi tiếng hoặc Việt Nam phù hợp để nâng cao nhận thức, chữa lành tâm hồn Voyager.
-`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: prompt,
-            },
-          ],
-        },
-      ],
-      systemInstruction: {
-        parts: [
-          {
-            text: SYSTEM_INSTRUCTION,
-          },
-        ],
-      },
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: GAME_RESPONSE_SCHEMA,
-        temperature: 1.0,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    let errMsg = "Lỗi kết nối Gemini API.";
-    try {
-      const errJson = JSON.parse(errText);
-      errMsg = errJson?.error?.message || errMsg;
-    } catch (e) {}
-    throw new Error(`Google API Error: ${errMsg}`);
-  }
-
-  const data = await response.json();
-  const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  
-  if (!replyText) {
-    throw new Error("Không nhận được nội dung phản hồi từ mô hình AI.");
-  }
-
-  const parsedData: GameResponse = JSON.parse(replyText);
-  return parsedData;
-}
 
 [LỊCH SỬ HÀNH TRÌNH]
 ${formattedHistory || "Voyager vừa mới đặt chân vào Mê cung InnerScape."}
@@ -258,4 +228,3 @@ async function startServer() {
 }
 
 startServer();
-
