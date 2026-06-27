@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Play, Pause, Music, Volume2, VolumeX, Sparkles } from "lucide-react";
+import { Play, Pause, Music, Volume2, VolumeX } from "lucide-react";
 
 interface MoodTrack {
   id: string;
@@ -74,7 +74,11 @@ export default function LofiAudioPlayer() {
   // Initialize Web Audio API nodes for synth
   const initAudio = () => {
     if (audioCtxRef.current) return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass: any = typeof window !== "undefined"
+      ? (window.AudioContext || (window as any).webkitAudioContext)
+      : null;
+    if (!AudioContextClass) return;
+    
     audioCtxRef.current = new AudioContextClass();
     
     // Main Gain
