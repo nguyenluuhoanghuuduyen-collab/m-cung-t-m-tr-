@@ -18,14 +18,14 @@ function loadHtml2Pdf(): Promise<any> {
 
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-    script.integrity = "sha512-GsLlZN/3F2ErC5IfS51RR841q569UXQcPsDBWfVVR6XXcTIipg37ICpMB1imYGSEz85Ibxzk959l1A1pl15IiQ==";
-    script.crossOrigin = "anonymous";
-    script.referrerPolicy = "no-referrer";
+    script.setAttribute("integrity", "sha512-GsLlZN/3F2ErC5IfS51RR841q569UXQcPsDBWfVVR6XXcTIipg37ICpMB1imYGSEz85Ibxzk959l1A1pl15IiQ==");
+    script.setAttribute("crossorigin", "anonymous");
+    script.setAttribute("referrerpolicy", "no-referrer");
     
     script.onload = () => {
       resolve((window as any).html2pdf);
     };
-    script.onerror = (err) => {
+    script.onerror = () => {
       reject(new Error("Không thể tải thư viện xuất PDF từ CDN. Vui lòng kiểm tra lại kết nối mạng."));
     };
     
@@ -50,7 +50,6 @@ export async function exportJourneyToPDF(data: JourneyData): Promise<void> {
 
   // Filter out choices and greetings, focus on narrative progression and Socratic reflections
   const socratesQAs: { question: string; answer: string }[] = [];
-  const narrativeSummary: string[] = [];
 
   // Group user responses and narrative states
   data.history.forEach((msg, idx) => {
@@ -64,13 +63,10 @@ export async function exportJourneyToPDF(data: JourneyData): Promise<void> {
           answer: msg.text
         });
       }
-    } else {
-      // Keep only key parts of AI narratives
-      narrativeSummary.push(msg.text.slice(0, 300) + "...");
     }
   });
 
-  const currentDate = new Date().toLocaleDateString("vi-VN", {
+  const currentDate = new Date().toLocaleString("vi-VN", {
     year: "numeric",
     month: "long",
     day: "numeric",
