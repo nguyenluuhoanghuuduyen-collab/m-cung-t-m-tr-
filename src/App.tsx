@@ -6,8 +6,9 @@ import LofiAudioPlayer from "./components/LofiAudioPlayer";
 import StarryGalaxy from "./components/StarryGalaxy";
 import BookSoulLibrary from "./components/BookSoulLibrary";
 import RestorativeQuests from "./components/RestorativeQuests";
-import { Sparkles, Moon, Sun, Library, Compass, Users, HelpCircle, Heart, Shield, Eye, GraduationCap } from "lucide-react";
+import { Sparkles, Moon, Sun, Library, Compass, Users, HelpCircle, Heart, Shield, Eye, GraduationCap, FileText } from "lucide-react";
 import { callGeminiDirectly } from "./geminiClient";
+import { exportJourneyToPDF } from "./pdfExporter";
 
 export default function App() {
   const [emotionalResource, setEmotionalResource] = useState<EmotionalResource>({
@@ -23,12 +24,32 @@ export default function App() {
   const [currentState, setCurrentState] = useState<GameResponse | null>(null);
   const [history, setHistory] = useState<{ sender: "user" | "architect"; text: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unlockedQuests, setUnlockedQuests] = useState<RealWorldQuest[]>([]);
   const [completedQuestIndexes, setCompletedQuestIndexes] = useState<number[]>([]);
 
   // Sound and UI controls
   const [activeTab, setActiveTab] = useState<"journey" | "library" | "galaxy">("journey");
+
+  const handleExportPDF = async () => {
+    if (history.length === 0) return;
+    setIsExporting(true);
+    try {
+      const rpScore = completedQuestIndexes.length * 20;
+      await exportJourneyToPDF({
+        emotionalResource,
+        history,
+        quests: unlockedQuests,
+        completedQuestIndexes,
+        restorativeScore: rpScore
+      });
+    } catch (err: any) {
+      alert(err.message || "Không thể xuất file PDF. Vui lòng thử lại.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Call the backend endpoint or Gemini directly to initiate or proceed the maze
   const fetchNextState = async (message: string, currentHistory: typeof history, currentResources: EmotionalResource) => {
@@ -207,6 +228,23 @@ export default function App() {
                 <span className="hidden sm:inline">Dải ngân hà</span>
               </button>
             </div>
+
+            {/* PDF Journey Report Exporter */}
+            {history.length > 0 && (
+              <button
+                id="btn-export-pdf"
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                className={`px-4 py-2 rounded-xl text-xs font-medium font-sans flex items-center gap-1.5 transition-all cursor-pointer border shadow-lg ${
+                  isExporting
+                    ? "bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed"
+                    : "bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold border-amber-400/20 shadow-amber-500/10 hover:shadow-amber-500/20 active:scale-95"
+                }`}
+              >
+                <FileText className={`w-3.5 h-3.5 ${isExporting ? "animate-spin" : ""}`} />
+                <span>{isExporting ? "Đang xuất PDF..." : "Xuất PDF Kết Quả"}</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
