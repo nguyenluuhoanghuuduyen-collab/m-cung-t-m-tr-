@@ -6,7 +6,7 @@ import LofiAudioPlayer from "./components/LofiAudioPlayer";
 import StarryGalaxy from "./components/StarryGalaxy";
 import BookSoulLibrary from "./components/BookSoulLibrary";
 import RestorativeQuests from "./components/RestorativeQuests";
-import { Sparkles, Moon, Sun, Library, Compass, Users, HelpCircle, Heart, Shield, Eye, GraduationCap, FileText } from "lucide-react";
+import { Library, Compass, Users, GraduationCap, FileText } from "lucide-react";
 import { callGeminiDirectly } from "./geminiClient";
 import { exportJourneyToPDF } from "./pdfExporter";
 
@@ -97,10 +97,11 @@ export default function App() {
 
       // Unlock new quest if provided
       if (data.realWorldQuest) {
+        const newQuest = data.realWorldQuest;
         // Check if quest already exists by title to avoid duplicates
         setUnlockedQuests((prev) => {
-          if (prev.some((q) => q.title === data.realWorldQuest.title)) return prev;
-          return [data.realWorldQuest, ...prev];
+          if (prev.some((q) => q.title === newQuest.title)) return prev;
+          return [newQuest, ...prev];
         });
       }
 
