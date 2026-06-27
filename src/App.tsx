@@ -231,21 +231,20 @@ export default function App() {
             </div>
 
             {/* PDF Journey Report Exporter */}
-            {history.length > 0 && (
-              <button
-                id="btn-export-pdf"
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                className={`px-4 py-2 rounded-xl text-xs font-medium font-sans flex items-center gap-1.5 transition-all cursor-pointer border shadow-lg ${
-                  isExporting
-                    ? "bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed"
-                    : "bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold border-amber-400/20 shadow-amber-500/10 hover:shadow-amber-500/20 active:scale-95"
-                }`}
-              >
-                <FileText className={`w-3.5 h-3.5 ${isExporting ? "animate-spin" : ""}`} />
-                <span>{isExporting ? "Đang xuất PDF..." : "Xuất PDF Kết Quả"}</span>
-              </button>
-            )}
+            <button
+              id="btn-export-pdf"
+              onClick={handleExportPDF}
+              disabled={isExporting || history.length === 0}
+              className={`px-4 py-2 rounded-xl text-xs font-medium font-sans flex items-center gap-1.5 transition-all border shadow-lg ${
+                isExporting || history.length === 0
+                  ? "bg-slate-900/60 border-slate-850 text-slate-500 cursor-not-allowed opacity-50"
+                  : "bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold border-amber-400/20 shadow-amber-500/10 hover:shadow-amber-500/20 active:scale-95 cursor-pointer"
+              }`}
+              title={history.length === 0 ? "Bắt đầu thám hiểm mê cung để có nhật ký xuất PDF" : "Tải xuống báo cáo hành trình khám phá tâm trí"}
+            >
+              <FileText className={`w-3.5 h-3.5 ${isExporting ? "animate-spin" : ""}`} />
+              <span>{isExporting ? "Đang xuất PDF..." : "Xuất PDF Kết Quả"}</span>
+            </button>
           </div>
         </div>
       </header>
