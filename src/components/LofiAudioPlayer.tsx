@@ -99,7 +99,6 @@ export default function LofiAudioPlayer() {
   useEffect(() => {
     const audio = new Audio();
     audio.loop = true;
-    audio.crossOrigin = "anonymous";
     audioElementRef.current = audio;
 
     return () => {
