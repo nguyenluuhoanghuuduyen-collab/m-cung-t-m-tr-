@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Play, Pause, Music, Volume2, VolumeX, Sparkles, Headphones, Smile } from "lucide-react";
+import { Play, Pause, Music, Volume2, VolumeX, Sparkles } from "lucide-react";
 
 interface MoodTrack {
   id: string;
