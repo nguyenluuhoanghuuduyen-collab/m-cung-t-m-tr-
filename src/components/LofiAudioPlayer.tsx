@@ -1,19 +1,77 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Play, Pause, Music, Volume2, VolumeX, Sparkles, CloudRain, Wind } from "lucide-react";
+import { Play, Pause, Music, Volume2, VolumeX, Sparkles, Headphones, Smile } from "lucide-react";
+
+interface MoodTrack {
+  id: string;
+  name: string;
+  mood: string;
+  url: string;
+  type: "mp3" | "synth";
+  synthTrack?: "rain" | "space" | "calm";
+}
+
+const trackList: MoodTrack[] = [
+  {
+    id: "synth-rain",
+    name: "Mưa Rơi Bên Thư Viện",
+    mood: "Bình yên / Tập trung sâu",
+    url: "",
+    type: "synth",
+    synthTrack: "rain"
+  },
+  {
+    id: "synth-space",
+    name: "Tím Khói Không Gian",
+    mood: "Sâu lắng / Thiền định",
+    url: "",
+    type: "synth",
+    synthTrack: "space"
+  },
+  {
+    id: "mp3-stress",
+    name: "Lofi Xoa Dịu Stress",
+    mood: "Hóa giải Lo âu & Stress",
+    url: "https://assets.mixkit.co/music/preview/mixkit-ambient-sleep-tom-1007.mp3",
+    type: "mp3"
+  },
+  {
+    id: "mp3-study",
+    name: "Lofi Tập Trung Học Tập",
+    mood: "Giải tỏa Áp lực học tập",
+    url: "https://assets.mixkit.co/music/preview/mixkit-lofi-chill-1604.mp3",
+    type: "mp3"
+  },
+  {
+    id: "mp3-healing",
+    name: "Lofi Chữa Lành Tâm Hồn",
+    mood: "Trị liệu Tổn thương & Cô đơn",
+    url: "https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-extra-long-1002.mp3",
+    type: "mp3"
+  },
+  {
+    id: "mp3-motivation",
+    name: "Lofi Động Lực Vượt Khó",
+    mood: "Tiếp sức Kiên định & Resilience",
+    url: "https://assets.mixkit.co/music/preview/mixkit-dreaming-big-1003.mp3",
+    type: "mp3"
+  }
+];
 
 export default function LofiAudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(40);
-  const [track, setTrack] = useState<"rain" | "space" | "calm">("rain");
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [selectedTrackId, setSelectedTrackId] = useState("synth-rain");
   
-  // Audio node references
-  const rainSourceRef = useRef<AudioWorkletNode | ScriptProcessorNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Audio node references for synth
+  const rainSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const synthIntervalRef = useRef<any>(null);
   const mainGainRef = useRef<GainNode | null>(null);
   const filterNodeRef = useRef<BiquadFilterNode | null>(null);
 
-  // Initialize Web Audio API nodes
+  // Initialize Web Audio API nodes for synth
   const initAudio = () => {
     if (audioCtxRef.current) return;
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -33,84 +91,111 @@ export default function LofiAudioPlayer() {
     filterNodeRef.current = filter;
   };
 
+  // Initialize HTML5 Audio element for MP3s
+  useEffect(() => {
+    const audio = new Audio();
+    audio.loop = true;
+    audio.crossOrigin = "anonymous";
+    audioElementRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+    };
+  }, []);
+
+  // Update volume for both systems
   useEffect(() => {
     if (mainGainRef.current && audioCtxRef.current) {
       mainGainRef.current.gain.setValueAtTime(volume / 100, audioCtxRef.current.currentTime);
     }
+    if (audioElementRef.current) {
+      audioElementRef.current.volume = volume / 100;
+    }
   }, [volume]);
 
   const startSoundscape = () => {
-    initAudio();
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-    if (ctx.state === "suspended") {
-      ctx.resume();
-    }
+    const currentTrack = trackList.find(t => t.id === selectedTrackId) || trackList[0];
 
+    // 1. Stop any currently playing audio/synth
     stopAllNodes();
 
-    // 1. Procedural Noise Generator (Rain or Space Hum)
-    if (track === "rain") {
-      // White noise synthesis for rain
-      const bufferSize = 2 * ctx.sampleRate;
-      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      let lastOut = 0.0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        // Brownian noise filter approximation for deep warm rain
-        output[i] = (lastOut + (0.02 * white)) / 1.02;
-        lastOut = output[i];
-        output[i] *= 3.5; // Gain multiplier
+    if (currentTrack.type === "synth") {
+      initAudio();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        ctx.resume();
       }
-      const noiseSource = ctx.createBufferSource();
-      noiseSource.buffer = noiseBuffer;
-      noiseSource.loop = true;
 
-      // Filter for rain softness
-      const rainFilter = ctx.createBiquadFilter();
-      rainFilter.type = "lowpass";
-      rainFilter.frequency.setValueAtTime(600, ctx.currentTime);
+      const synthType = currentTrack.synthTrack || "rain";
 
-      noiseSource.connect(rainFilter);
-      if (filterNodeRef.current) {
-        rainFilter.connect(filterNodeRef.current);
+      if (synthType === "rain") {
+        const bufferSize = 2 * ctx.sampleRate;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          output[i] = (lastOut + (0.02 * white)) / 1.02;
+          lastOut = output[i];
+          output[i] *= 3.5;
+        }
+        const noiseSource = ctx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        noiseSource.loop = true;
+
+        const rainFilter = ctx.createBiquadFilter();
+        rainFilter.type = "lowpass";
+        rainFilter.frequency.setValueAtTime(600, ctx.currentTime);
+
+        noiseSource.connect(rainFilter);
+        if (filterNodeRef.current) {
+          rainFilter.connect(filterNodeRef.current);
+        }
+        noiseSource.start();
+        rainSourceRef.current = noiseSource;
+
+      } else if (synthType === "space") {
+        const bufferSize = 4 * ctx.sampleRate;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          output[i] = (lastOut + (0.05 * white)) / 1.05;
+          lastOut = output[i];
+          output[i] *= 1.5;
+        }
+        const noiseSource = ctx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        noiseSource.loop = true;
+
+        const spaceFilter = ctx.createBiquadFilter();
+        spaceFilter.type = "bandpass";
+        spaceFilter.Q.setValueAtTime(1.0, ctx.currentTime);
+        spaceFilter.frequency.setValueAtTime(180, ctx.currentTime);
+
+        noiseSource.connect(spaceFilter);
+        if (filterNodeRef.current) {
+          spaceFilter.connect(filterNodeRef.current);
+        }
+        noiseSource.start();
+        rainSourceRef.current = noiseSource;
       }
-      noiseSource.start();
-      rainSourceRef.current = noiseSource as any;
 
-    } else if (track === "space" || track === "calm") {
-      // Space/Wind hum
-      const bufferSize = 4 * ctx.sampleRate;
-      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      let lastOut = 0.0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        // Deep pink/brownian filter for warm cyber space ambient
-        output[i] = (lastOut + (0.05 * white)) / 1.05;
-        lastOut = output[i];
-        output[i] *= 1.5;
+      // Play procedural chords
+      playLofiChords();
+    } else {
+      // Play MP3 audio track
+      if (audioElementRef.current) {
+        audioElementRef.current.src = currentTrack.url;
+        audioElementRef.current.volume = volume / 100;
+        audioElementRef.current.play().catch(err => {
+          console.error("Audio play failed:", err);
+        });
       }
-      const noiseSource = ctx.createBufferSource();
-      noiseSource.buffer = noiseBuffer;
-      noiseSource.loop = true;
-
-      const spaceFilter = ctx.createBiquadFilter();
-      spaceFilter.type = "bandpass";
-      spaceFilter.Q.setValueAtTime(1.0, ctx.currentTime);
-      spaceFilter.frequency.setValueAtTime(180, ctx.currentTime);
-
-      noiseSource.connect(spaceFilter);
-      if (filterNodeRef.current) {
-        spaceFilter.connect(filterNodeRef.current);
-      }
-      noiseSource.start();
-      rainSourceRef.current = noiseSource as any;
     }
-
-    // 2. Procedural cozy musical synth chords
-    playLofiChords();
     setIsPlaying(true);
   };
 
@@ -118,10 +203,10 @@ export default function LofiAudioPlayer() {
     const ctx = audioCtxRef.current;
     if (!ctx) return;
 
-    // Chords progression: Am7 -> Dm7 -> G7 -> Cmaj7 (Lofi classic)
+    // Chords: Am7 -> Dm7 -> G7 -> Cmaj7
     const progressions = [
-      [220.00, 261.63, 329.63, 392.00], // Am7 (A3, C4, E4, G4)
-      [146.83, 261.63, 293.66, 349.23], // Dm7 (D3, C4, D4, F4)
+      [220.00, 261.63, 329.63, 392.00], // Am7
+      [146.83, 261.63, 293.66, 349.23], // Dm7
       [196.00, 246.94, 293.66, 383.00], // G7
       [261.63, 329.63, 392.00, 493.88], // Cmaj7
     ];
@@ -133,21 +218,16 @@ export default function LofiAudioPlayer() {
       const chord = progressions[chordIdx];
       chordIdx = (chordIdx + 1) % progressions.length;
 
-      // Soft sound, multiple oscillators to create full tone
       chord.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
-        // 7th chord elements with soft triangle wave
-        osc.type = track === "calm" ? "sine" : "triangle";
+        osc.type = "triangle";
         osc.frequency.setValueAtTime(freq, now);
-
-        // Detune slightly for lush chorus effect
         osc.detune.setValueAtTime((idx - 1.5) * 6, now);
 
-        // Soft exponential attack and long decay
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.04, now + 1.5);
+        gain.gain.linearRampToValueAtTime(0.03, now + 1.5);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 5.5);
 
         osc.connect(gain);
@@ -160,14 +240,12 @@ export default function LofiAudioPlayer() {
       });
     };
 
-    // Play first chord immediately
     playChord();
-    
-    // Setup interval for every 6 seconds
     synthIntervalRef.current = setInterval(playChord, 6000);
   };
 
   const stopAllNodes = () => {
+    // 1. Stop synth
     if (rainSourceRef.current) {
       try {
         rainSourceRef.current.stop();
@@ -177,6 +255,10 @@ export default function LofiAudioPlayer() {
     if (synthIntervalRef.current) {
       clearInterval(synthIntervalRef.current);
       synthIntervalRef.current = null;
+    }
+    // 2. Pause HTML5 Audio
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
     }
   };
 
@@ -189,18 +271,20 @@ export default function LofiAudioPlayer() {
     }
   };
 
+  // Change tracks dynamically
   useEffect(() => {
     if (isPlaying) {
-      // Restart with the new track selection
       startSoundscape();
     }
-  }, [track]);
+  }, [selectedTrackId]);
 
   useEffect(() => {
     return () => {
       stopAllNodes();
     };
   }, []);
+
+  const currentTrack = trackList.find(t => t.id === selectedTrackId) || trackList[0];
 
   return (
     <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-900/90 backdrop-blur border border-amber-500/20 rounded-2xl p-4 shadow-xl">
@@ -210,11 +294,14 @@ export default function LofiAudioPlayer() {
             <Music className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-medium text-amber-100 font-sans">
-              Lofi Ambient Tâm Trí
+            <h4 className="text-sm font-medium text-amber-100 font-sans flex items-center gap-1.5">
+              Lofi Âm Thanh Trị Liệu
+              <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded-full font-mono">
+                {currentTrack.type === "synth" ? "Giả Lập AI" : "Bản Nhạc"}
+              </span>
             </h4>
             <p className="text-[10px] text-slate-400 font-mono">
-              {isPlaying ? "Đang phát sóng..." : "Âm thanh xoa dịu stress"}
+              {isPlaying ? `Đang phát: ${currentTrack.name}` : "Chọn nhạc nền theo tâm trạng"}
             </p>
           </div>
         </div>
@@ -236,46 +323,28 @@ export default function LofiAudioPlayer() {
           ) : (
             <>
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Phát Lo-fi</span>
+              <span>Phát Nhạc</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Control sliders & selectors */}
+      {/* Control select & sliders */}
       <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-        {/* Track buttons */}
-        <div className="flex bg-slate-950 rounded-xl p-1 border border-slate-800">
-          <button
-            id="track-rain"
-            onClick={() => setTrack("rain")}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer flex items-center gap-1 ${
-              track === "rain" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "text-slate-400"
-            }`}
+        {/* Track Selector Dropdown */}
+        <div className="relative w-full sm:w-60">
+          <select
+            id="track-select"
+            value={selectedTrackId}
+            onChange={(e) => setSelectedTrackId(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none font-sans cursor-pointer focus:border-amber-500/40"
           >
-            <CloudRain className="w-3 h-3" />
-            Mưa Thư Viện
-          </button>
-          <button
-            id="track-space"
-            onClick={() => setTrack("space")}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer flex items-center gap-1 ${
-              track === "space" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "text-slate-400"
-            }`}
-          >
-            <Wind className="w-3 h-3" />
-            Tím Khói
-          </button>
-          <button
-            id="track-calm"
-            onClick={() => setTrack("calm")}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer flex items-center gap-1 ${
-              track === "calm" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "text-slate-400"
-            }`}
-          >
-            <Sparkles className="w-3 h-3" />
-            Thiền Định
-          </button>
+            {trackList.map((track) => (
+              <option key={track.id} value={track.id} className="bg-slate-950 text-slate-200">
+                {track.name} ({track.mood})
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Volume controls */}
